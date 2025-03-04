@@ -3,18 +3,38 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import useSocketConnection from "./useSocketConnection";
 import useLocalStorage from "./useLocalStorage";
 
+/**
+ * useChat custom hook manages the state and logic for a chat application, including
+ * message handling, socket communication, and session management.
+ *
+ * @returns {object} An object containing chat state and handler functions.
+ */
 const useChat = () => {
   // State management with custom hooks
   const { getItem, setItem, removeItem } = useLocalStorage();
-  
+
   // Message state
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
+
+  // Define initial suggestions
+  //! Replace with your own initial suggestions
+  const INITAL_SUGGESTIONS = [
+    "What AI solutions do you offer?",
+    "How does your chatbot development process work?",
+    "Can you explain how AI agents improve business efficiency?",
+  ];
+
+  //! Replace with your own initial message
+  const INITIAL_MESSAGE =
+    "👋 Welcome to Centonis! We're experts in AI consulting, chatbot development, and AI agents. Ask me anything about our services, AI solutions, or how we can help your business. I'm here to assist you!";
+  // Initialize suggestions state with default suggestions
+  const [suggestions, setSuggestions] = useState(INITAL_SUGGESTIONS);
+
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
-  
+
   // References
   const messagesEndRef = useRef(null);
 
@@ -26,7 +46,7 @@ const useChat = () => {
     onResponseComplete: handleResponseComplete,
     onError: handleError,
     onClearChat: handleClearChatEvent,
-    onSuggestions: handleSuggestions
+    onSuggestions: handleSuggestions,
   });
 
   // Load saved messages on initial render
@@ -35,13 +55,32 @@ const useChat = () => {
     if (savedMessages) {
       try {
         const parsedMessages = JSON.parse(savedMessages);
-        const completeMessages = parsedMessages.filter(msg => msg.complete);
+        const completeMessages = parsedMessages.filter((msg) => msg.complete);
+        // If there are no complete messages, add the welcome message
+        if (completeMessages.length === 0) {
+          completeMessages.push({
+            messageType: "ai",
+            message: INITIAL_MESSAGE,
+            complete: true,
+          });
+        }
         setMessages(completeMessages);
         setItem("chatMessages", JSON.stringify(completeMessages));
       } catch (error) {
         console.error("Error parsing saved messages:", error);
         removeItem("chatMessages");
       }
+    } else {
+      // No saved messages, so initialize with a welcome message
+      const initialMessages = [
+        {
+          messageType: "ai",
+          message: INITIAL_MESSAGE,
+          complete: true,
+        },
+      ];
+      setMessages(initialMessages);
+      setItem("chatMessages", JSON.stringify(initialMessages));
     }
   }, []);
 
@@ -78,9 +117,13 @@ const useChat = () => {
 
   function handleTextDelta({ textDelta, snapshot }) {
     setIsLoading(false);
-    setMessages(prev => {
+    setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.messageType === "ai" && !lastMessage.complete) {
+      if (
+        lastMessage &&
+        lastMessage.messageType === "ai" &&
+        !lastMessage.complete
+      ) {
         const updatedMessages = [...prev];
         updatedMessages[prev.length - 1] = {
           ...lastMessage,
@@ -102,7 +145,7 @@ const useChat = () => {
 
   function handleResponseComplete() {
     setIsLoading(false);
-    setMessages(prev => {
+    setMessages((prev) => {
       const updatedMessages = [...prev];
       if (updatedMessages.length > 0) {
         updatedMessages[updatedMessages.length - 1] = {
@@ -145,28 +188,44 @@ const useChat = () => {
     }
   }
 
+  // This function handles suggestions coming from the server.
+  // If new suggestions are provided, they will override the initial suggestions.
   function handleSuggestions(data) {
     setSuggestions(data.suggestions);
   }
 
   // User interactions
-  const handleSendMessage = useCallback((e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!inputMessage.trim() || !socket) return;
+  // Modified handleSendMessage to accept an optional customMessage parameter.
+  const handleSendMessage = useCallback(
+    (e, customMessage) => {
+      if (e && e.preventDefault) e.preventDefault();
+      const messageToSend =
+        customMessage !== undefined ? customMessage : inputMessage;
+      if (!messageToSend.trim() || !socket) return;
 
-    const newMessage = {
-      messageType: "user",
-      message: inputMessage,
-      complete: true,
-    };
+      const newMessage = {
+        messageType: "user",
+        message: messageToSend,
+        complete: true,
+      };
 
-    setMessages(prev => [...prev, newMessage]);
-    setIsLoading(true);
+      setMessages((prev) => [...prev, newMessage]);
+      setIsLoading(true);
 
-    socket.emit("send_prompt", { prompt: inputMessage });
-    setInputMessage("");
-    setSuggestions([]);
-  }, [inputMessage, socket]);
+      socket.emit("send_prompt", { prompt: messageToSend });
+      setInputMessage("");
+      setSuggestions([]);
+    },
+    [inputMessage, socket]
+  );
+
+  // Modified handleSuggestionClick to immediately send the suggestion.
+  const handleSuggestionClick = useCallback(
+    (suggestion) => {
+      handleSendMessage(null, suggestion);
+    },
+    [handleSendMessage]
+  );
 
   const handleInputChange = useCallback((e) => {
     setInputMessage(e.target.value);
@@ -181,11 +240,6 @@ const useChat = () => {
     setShowSessionExpiredModal(false);
   }, []);
 
-  const handleSuggestionClick = useCallback((suggestion) => {
-    setInputMessage(suggestion);
-    handleSendMessage();
-  }, [handleSendMessage]);
-
   return {
     messages,
     suggestions,
@@ -199,7 +253,7 @@ const useChat = () => {
     handleInputChange,
     handleClearChat,
     handleSuggestionClick,
-    handleDismissSessionExpiredModal
+    handleDismissSessionExpiredModal,
   };
 };
 

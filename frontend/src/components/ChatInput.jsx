@@ -1,9 +1,19 @@
 // components/ChatInput.jsx
 import Send from "../Icons/Send";
 
+/**
+ * ChatInput component renders an input field and send button for chat messages.
+ *
+ * @component
+ * @param {string} inputMessage - The current input message.
+ * @param {function} onInputChange - Callback function for input message changes.
+ * @param {function} onSendMessage - Callback function for sending a message.
+ * @param {boolean} isLoading - Indicates whether the chat is currently loading.
+ * 
+ */
 const ChatInput = ({ inputMessage, onInputChange, onSendMessage, isLoading }) => {
   return (
-    <div className="absolute bottom-0 left-4 right-4 z-10 bg-white h-[4rem] rounded-tl-4xl rounded-tr-4xl">
+    <div className="absolute bottom-0 left-4 right-4 z-10 bg-white h-[4rem] rounded-tl-4xl rounded-tr-4xl ">
       <form
         onSubmit={onSendMessage}
         className="shadow-xs border border-zinc-300 rounded-full flex items-center bg-white focus-within:border-black focus-within:border-2"
@@ -25,4 +35,4 @@ const ChatInput = ({ inputMessage, onInputChange, onSendMessage, isLoading }) =>
     </div>
   );
 };
-export default ChatInput
+export default ChatInput;
